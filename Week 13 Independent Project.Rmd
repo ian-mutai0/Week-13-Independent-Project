@@ -1,0 +1,968 @@
+---
+title: "Week 13 Independent Project"
+author: "Mr. Mutai"
+date: "7/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+---
+title: "Week 12 Independent Project"
+author: "Mr. Mutai"
+date: "7/3/2021"
+output:
+  html_document: 
+    keep_md: yes
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ASSESSMENT QUESTION
+
+A Kenyan entrepreneur has created an online cryptography course and would want to advertise it on her blog.
+She currently targets audiences originating from various countries.
+In the past, she ran ads to advertise a related course on the same blog and collected data in the process.
+She would now like to employ your services as a Data Science Consultant to help her identify which individuals are most likely to click on her ads. 
+
+
+# 1. DEFINING THE QUESTION
+
+## i) Specifying the Data Analytic Question
+
+We will be tasked to create a supervised learning model to help a Kenyan entrepreneur identify which individuals are most likely to click on the ads in the blog. 
+
+## ii) Defining the Metric for Success
+
+To perform exploratory data analysis and implement our solution by creating various supervised learning models and choosing the best performing one that can help us predict which individuals are most likely to click on the ads in the blog. 
+
+## iii) Understanding the Context
+
+The entrepreneur wants to understand which factors determine whether an individual will click on her ads such as their age, gender, time spent on the site, daily internet usage, the city and the country they are from.
+
+## iv) Recording the Experimental Design
+
+1)  Define the question, the metric for success, the context, experimental design taken and the appropriateness of the available data to answer the given question
+2)  Read the dataset into our environment (RStudio)
+3)  Preview the dataset
+4)  Find and deal with outliers, anomalies, and missing data within the dataset
+5)  Perform univariate and bivariate analysis
+6)  Implement our solution by creating various supervised learning models and choose the best performing one for our research problem
+7)  From our insights provide conclusions and recommendations
+
+
+# 2. IMPORTING THE RELEVANT LIBRARIES
+
+```{r library}
+library(data.table)
+library(ggplot2)
+library(caret)
+library(caretEnsemble)
+library(psych)
+library(Amelia)
+library(mice)
+library(GGally)
+library(rpart)
+library(randomForest)
+```
+
+
+# 3. LOADING THE DATASET
+
+First we set the working directory by choosing the directory in which our dataset is in.
+Afterwards we read the csv file and view it in our environment.
+OR 
+Alternatively read the URL and view the csv file in our environment.
+
+```{r csv}
+# Set working directory 
+# setwd(choose.dir())
+
+# Read the csv file from the URL
+advertising = fread('http://bit.ly/IPAdvertisingData')
+
+# View the dataset in our environment
+View(advertising)
+```
+
+
+# 4. PREVIEWING THE DATASET
+
+i)  The top 6 rows in our dataset
+
+```{r head, echo = TRUE}
+head(advertising)
+```
+
+ii) The bottom 6 rows in our dataset
+
+```{r tail, echo = TRUE}
+tail(advertising)
+```
+
+iii) The shape of the dataset
+
+```{r shape, echo = TRUE}
+# Dimensions of the dataset
+dim(advertising)
+```
+
+The advertising dataset has 1000 rows and 10 columns.
+
+iv) The datatypes of the columns in our dataset
+
+```{r structure, echo = TRUE}
+# Structure of the dataset
+str(advertising)
+```
+
+We can tell that 3 columns are of the type integer, 3 are of the type number and 4 columns are of the character type.
+
+We should convert the target variable (Clicked on Ad) into a factor since it is categorical and not an integer. 
+
+```{r}
+advertising$`Clicked on Ad` = factor(advertising$`Clicked on Ad`)
+```
+
+# 5. CLEANING THE DATASET
+
+## Checking for null values in the dataset
+
+```{r null, echo = TRUE}
+#is.na(advertising)
+
+# Sum of null values in each column
+colSums(is.na(advertising))
+```
+
+We can conclude that there are no missing values in any column in our dataset.
+
+## Checking for duplicate values in the dataset.
+
+```{r duplicate, echo = TRUE}
+# Checking the number of duplicated rows
+duplicated_rows <- advertising[duplicated(advertising),]
+duplicated_rows
+```
+
+We can conclude that there are also no duplicate values in our dataset.
+
+## Checking for outliers
+
+We can check for outliers using the boxplots.
+
+### i) Daily Time Spent on Site column.
+
+```{r time, echo = TRUE}
+# Daily Time Spent on Site
+boxplot(advertising$"Daily Time Spent on Site")
+```
+
+From the boxplot, we can tell that there are no outliers in the 'Daily Time spent on site' column.
+
+### ii) Age Column
+
+```{r, echo = TRUE}
+# Age
+boxplot(advertising$Age)
+```
+
+We don't have outliers in the age column.
+
+### iii) Area Income column
+
+```{r income}
+# Area Income
+boxplot(advertising$"Area Income")
+# boxplot.stats(advertising$Area.Income)$out
+```
+
+There are outliers in the area income column.
+We decided not to drop them because they are an actual representation of the income people in the area earn. 
+
+
+### iv) Daily Internet Usage
+
+```{r units}
+# Daily Internet Usage
+boxplot(advertising$"Daily Internet Usage")
+```
+
+There are no outliers in the daily internet usage column.
+
+
+# 6. EXPLORATORY DATA ANALYSIS
+
+## A. UNIVARIATE DATA ANALYSIS
+
+### Measures of Central Tendency
+
+#### i) Mean
+
+```{r mean time}
+mean(advertising$"Daily Time Spent on Site")
+```
+
+The average time spent on the site daily is 65 minutes.
+
+```{r mean age}
+mean(advertising$Age)
+```
+
+The average age of individuals in our dataset is 36 years old.
+
+```{r mean units}
+mean(advertising$"Daily Internet Usage")
+```
+
+The average daily internet usage is 180 units.
+
+#### ii) Median
+
+```{r median time}
+median(advertising$"Daily Time Spent on Site")
+```
+
+The median time spent on site daily is 68.215 minutes.
+
+```{r median age}
+median(advertising$Age)
+```
+
+The median age is 35 years old.
+
+```{r median units}
+median(advertising$"Daily Internet Usage")
+```
+
+The median daily internet usage is 183.13 units.
+
+#### iii) Mode
+
+```{r mode time}
+# Define a function for getting the mode 
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+getmode(advertising$"Daily Time Spent on Site")
+```
+
+The mode for the daily time spent on the site is 62.26 minutes.
+
+```{r mode age}
+getmode(advertising$Age)
+```
+
+The mode for the age is 31 years old.
+
+```{r mode units}
+getmode(advertising$"Daily Internet Usage")
+```
+
+The mode for the daily internet usage is 167.22 units.
+
+
+### Measures of Dispersion
+
+#### i) Range
+
+```{r time range}
+range(advertising$"Daily Time Spent on Site")
+```
+
+The range of daily time spent on the site is between 32.60 and 91.43 minutes
+
+```{r age range}
+range(advertising$Age)
+```
+
+The age range is between 19 and 61 years old.
+
+```{r units range}
+range(advertising$"Daily Internet Usage")
+```
+
+The range of daily internet usage is between 104.78 and 269.96 units.
+
+#### ii) Quantiles
+
+```{r time quantiles}
+quantile(advertising$"Daily Time Spent on Site")
+```
+
+The first quantile in the daily time spent is 51.36 minutes.
+The third quantile in the daily time spent on site is 78.55 minutes.
+
+```{r age quantiles}
+quantile(advertising$Age)
+```
+
+The first quantile in age is 29 years old.
+The third quantile in age is 42 years old.
+
+```{r units quantile}
+quantile(advertising$"Daily Internet Usage")
+```
+
+The first quantile in the daily internet usage is 138.83 units.
+The third quantile in the daily internet usage is 218.79 units.
+
+#### iii) Variance
+
+```{r time variance}
+var(advertising$"Daily Time Spent on Site")
+```
+
+The variance in the daily time spent on site is 251.33
+
+```{r age variance}
+var(advertising$Age)
+```
+
+The variance in the age is 77.18
+
+```{r units variance}
+var(advertising$"Daily Internet Usage")
+```
+
+The variance in the daily internet usage is 1927.415
+
+#### iv) Standard Deviation
+
+```{r time std}
+sd(advertising$"Daily Time Spent on Site")
+```
+
+The standard deviation in the daily time spent on site is 15.85361
+
+```{r age std}
+sd(advertising$Age)
+```
+
+The standard deviation in the age is 8.785562
+
+```{r units std}
+sd(advertising$"Daily Internet Usage")
+```
+
+The standard deviation in the daily internet usage is 43.90234
+
+
+### Frequency Tables
+
+```{r gender}
+# Gender Frequency Table
+# 0 symbolizes female while 1 is male
+gender <- table(advertising$Male)
+gender
+```
+
+From the frequency table above, we can tell that there are 519 females and 481 males in our dataset.
+
+```{r clicked}
+# Clicked on Ad Frequency Table
+# 0 means the individual did not click on the ad, 1 means the individual clicked on an ad
+clicked <- table(advertising$"Clicked on Ad")
+clicked
+```
+
+From the frequency table above, we can tell that our dataset is balanced in the sense that 500 individuals clicked on the ad while 500 did not click on the ads.
+
+```{r country}
+# Country Frequency Table
+country <- (table(advertising$Country))
+
+# Sort the table so as to find the country with the most individuals in our dataset
+sorted_country <- sort(country, decreasing = TRUE)
+head(sorted_country)
+```
+
+From the frequency table above, we can tell that both Czech Republic and France had 9 individuals each while Afghanistan, Australia, Cyprus and Greece all had 8 individuals each.
+
+```{r city}
+# City Frequency Table
+city <- table(advertising$City)
+
+# Sort the table so as to find the city with the most individuals in our dataset
+sorted_city <- sort(city, decreasing = TRUE)
+head(sorted_city)
+```
+
+From the frequency table, we can tell that both Lisamouth and Williamsport both had 3 individuals each while Benjaminchester, East John, East Timothy and Johnstad all had 2 individuals each.
+
+```{r}
+# Age Frequency Table
+age <- table(advertising$Age)
+
+# Sort the table so as to find the age with the most individuals
+sorted_age <- sort(age, decreasing = TRUE)
+head(sorted_age)
+```
+
+From the frequency table, we can tell that individuals aged between 28 and 36 years old are the most in our dataset.
+
+
+### Graphical Plots
+
+#### i) Bar Charts
+
+```{r, echo = FALSE}
+# Fits we get the frequency distribution table
+age <- table(advertising$Age)
+
+# Then we plot a bar chart 
+barplot(age, xlab ='Age', ylab ='Frequency', main ='Age Bar Chart')
+```
+
+From the bar chart above, we can tell that age 31 had the highest frequency in the dataset.
+
+```{r, echo = FALSE}
+# Gender barplot
+barplot(gender, xlab = 'Gender', ylab = 'Count', main = 'Gender Bar Chart')
+```
+
+From the bar chart, we can tell that 0(female) had more count that 1(male) in our dataset.
+
+
+#### ii) Histograms
+
+```{r histogram, echo = FALSE}
+# Plot a histogram for the age column
+hist(advertising$Age, xlab = 'Age', main = 'Histogram for Age')
+```
+
+From the histogram, we can also tell that age 25 - 35 had the highest frequency in the dataset.
+
+
+## B. BIVARIATE DATA ANALYSIS
+
+### Covariance
+
+```{r}
+# We can find the covariance between age and the daily time spent on the site
+age <- advertising$Age
+time <- advertising$"Daily Time Spent on Site"
+
+cov(age, time)
+```
+
+There is a negative covariance between age and the daily time spent on the site which means that the older a person is, the less time they spend on the site daily.
+
+```{r covariance}
+age <- advertising$Age
+units <- advertising$"Daily Internet Usage"
+
+cov(age, units)
+```
+
+There is a negative covariance between age and the daily internet usage which means that the older a person is, the less units they use on internet daily.
+
+```{r}
+# Covariance between time spent on site and the daily internet usage
+cov(time, units)
+```
+
+There is a positive covariance between the time spent on site and the daily internet usage which makes sense since the more time you spend on site, the higher your daily internet usage is bound to be.
+
+### Correlation
+
+```{r correlation}
+# We will use the age and time variables that we created earlier for correlation
+cor(age, time)
+```
+
+There is a negative linear relationship between age and the daily time spent on the site.
+
+```{r}
+# We will use the age and units variables that we created earlier for correlation
+cor(age, units)
+```
+
+There is a negative linear relationship between age and the daily internet usage.
+
+```{r}
+# Correlation between time spent on site and the daily internet usage
+cor(time, units)
+```
+
+There is a positive correlation between the time spent on site and the daily internet usage which makes sense since the more time you spend on site, the higher the amount of units you will use on internet. 
+
+### Correlation Matrix
+
+First we load the corrplot library which enables us to plot a correlation matrix.
+
+```{r correlation library}
+library(corrplot) # This library allows us to plot correlation.
+```
+
+We go ahead to create a variable that holds the numerical columns in our dataset.
+
+```{r subset}
+# Create a subset of the numerical columns in our dataset
+numerical <- subset(advertising, select = c("Daily Time Spent on Site", "Age", "Daily Internet Usage", "Area Income"))
+```
+
+Plot a correlation matrix for the numerical variables in our dataset.
+
+```{r correlation matrix}
+cor(numerical)
+```
+
+
+### Scatter Plots
+
+```{r}
+# First we import the ggplot2 library which will help us in visualizations
+library(ggplot2)
+```
+
+
+```{r internet time, echo = FALSE}
+ggplot(data = advertising) + geom_point(mapping = aes(x = time, y = units))
+```
+
+From the scatter plot we can tell that the longer the time spent on site, the higher the amount of units used on internet.
+
+
+```{r scatter, echo = FALSE}
+ggplot(data = advertising) + geom_point(mapping = aes(x = age, y = time))
+```
+
+From the scatter plot, we can tell that the older an individual is, the less time spent on site. 
+
+```{r, echo = FALSE}
+ggplot(data = advertising) + geom_point(mapping = aes(x = age, y = units))
+```
+
+From this scatter plot, we can determine that the older an individual is, the lower the amount of units spent daily on internet. 
+
+
+# 7. IMPLEMENTING THE SOLUTION 
+
+We will implement the solution to our research problem by creating the following supervised learning models : 
+
+i) k Nearest Neighbors (kNN) 
+ii) Support Vector Machine (SVM)
+iii) Decision Trees 
+iv) Naive Bayes
+
+In this specific problem we will not use regression because our target variable is categorical and not continuous. 
+
+- First we perform label encoding to our categorical columns so as to enable modelling.
+
+```{r label encoding}
+
+# Import the library for label encoding
+library(superml)
+
+# Introduce the label encoder object
+label <- LabelEncoder$new()
+
+# Label encode the categorical columns i.e. City, Country
+advertising$City <- label$fit_transform(advertising$City)
+print(advertising$City)
+
+advertising$Country <- label$fit_transform(advertising$Country)
+print(advertising$Country)
+
+
+print("Dataset after label encoding..\n")
+print(advertising)
+```
+
+- After label encoding, we decide to drop the Timestamp and Ad Topic Line columns since we will not use them in modelling. 
+
+```{r dropping columns}
+Advertising = subset(advertising, select = c("Daily Time Spent on Site","Age","Area Income","Daily Internet Usage","City","Male","Country","Clicked on Ad"))
+```
+
+
+## 1. Naive Bayes
+
+- We first try to understand the columns in our dataset.
+
+```{r}
+describe(Advertising)
+```
+
+- We convert the target variable into a factor. 
+
+```{r}
+Advertising$`Clicked on Ad` <- factor(Advertising$`Clicked on Ad`)
+```
+
+- We then check the first 6 records in our new dataframe. 
+
+```{r}
+head(Advertising)
+```
+
+- Split the data into training and test data sets
+
+```{r}
+indxTrain <- createDataPartition(y = advertising$`Clicked on Ad`, p = 0.7, list = FALSE)
+training <- advertising[indxTrain,]
+testing <- advertising[-indxTrain,]
+```
+
+- Checking the dimensions of the split sets
+
+```{r}
+prop.table(table(advertising$`Clicked on Ad`)) * 100
+prop.table(table(training$`Clicked on Ad`)) * 100
+prop.table(table(testing$`Clicked on Ad`)) * 100
+```
+
+- We then compare the outcomes of the training and testing phase by creating objects that will hold the predictor and response variables separately.
+
+```{r}
+x = training[, -8]
+y = training$`Clicked on Ad`
+```
+
+- Loading our inbuilt e1071 package that holds the Naive Bayes function.
+
+```{r}
+library(e1071)
+```
+
+- Then we build our Naive Bayes model using our training data. 
+
+```{r}
+model = naiveBayes(`Clicked on Ad` ~ ., data = training)
+```
+
+- Predicting the target variable using the testing data.
+
+```{r}
+y_pred = predict(model, newdata = testing)
+```
+
+- Create a table that holds the predicted and actual values
+```{r}
+confusion = table(testing$`Clicked on Ad`, y_pred)
+```
+
+- Evaluate the model using the confusion matrix() function which tells us the accuracy of the model. 
+
+```{r}
+confusionMatrix(confusion)
+```
+
+- We can deduce that the accuracy of our Naive Bayes classifier is 96.67%.
+
+
+## 2. KNN
+
+- First we create a uniform distribution of 1000 rows.
+
+```{r}
+set.seed(1234)
+# Randomize the rows and create a uniform distribution of 1000 rows
+random <- runif(1000)
+random
+```
+
+- Order the rows in our randomized dataset
+
+```{r}
+ad_random <- Advertising[order(random),]
+```
+
+- Preview the first 6 rows in our dataset
+
+```{r}
+head(ad_random)
+```
+
+- Create a normalization function and normalize the response variables in our sampled dataset. 
+
+```{r}
+normal <- function(x) (
+  return( ((x - min(x)) /(max(x)-min(x))) )
+)
+
+normal(1:8)
+ad_new <- as.data.frame(lapply(ad_random[,-8], normal))
+summary(ad_new)
+
+```
+
+- Create test and train data sets
+
+```{r}
+train <- ad_new[1:700,]
+test <- ad_new[701:1000,]
+train_label <- ad_random[1:700,8]
+test_label <- ad_random[701:1000,8]
+```
+
+- Check the dimensions in our train sets
+
+```{r}
+dim(train_label)
+dim(train)
+```
+- We build our KNN model from the class library
+
+```{r}
+library(class)    
+require(class)
+#cl = train_label[,1]
+model <- knn(train = train, test = test, cl = train_label$`Clicked on Ad`, k=32)
+table(factor(model))
+
+# Print out the confusion matrix 
+tb = table(test_label$`Clicked on Ad`,model)
+tb
+```
+
+From the confusion matrix we can tell that our KNN model was able to make 287 correct predictions from 300 observations in the training set. 
+
+```{r}
+# Checking the accuracy of our KNN model
+accuracy <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+accuracy(tb)
+```
+
+- We have achieved an accuracy score of 96% using the KNN model.
+
+## 3. Support Vector Machine (SVM) Classifier
+
+```{r}
+# Encoding the target feature as factor
+Advertising$`Clicked on Ad` = factor(Advertising$`Clicked on Ad`, levels = c(0, 1))
+
+```
+
+```{r}
+# Splitting the dataset into the Training set and Test set
+install.packages('caTools')
+library(caTools)
+
+set.seed(123)
+split = sample.split(Advertising$`Clicked on Ad`, SplitRatio = 0.75)
+
+training = subset(Advertising, split == TRUE)
+test = subset(Advertising, split == FALSE)
+
+```
+
+```{r}
+# Fitting SVM to the Training set
+
+classifier = svm(formula = `Clicked on Ad` ~ .,
+				data = training,
+				type = 'C-classification',
+				kernel = 'linear')
+
+```
+
+```{r}
+# Predicting the Test set results
+y_pred = predict(classifier, newdata = test)
+```
+
+```{r}
+# Making the Confusion Matrix
+cm = table(test$`Clicked on Ad`, y_pred)
+
+```
+
+```{r}
+confusionMatrix(cm)
+```
+
+- Using SVM, we achieve an accuracy score of 95.6%
+
+
+## 4. Random Forest Classifier
+
+```{r}
+# Installing package
+install.packages("caTools")	 # For sampling the dataset
+install.packages("randomForest") # For implementing random forest algorithm
+``` 
+
+```{r}
+# Loading package
+library(caTools)
+library(randomForest)
+```
+
+```{r}
+# Splitting data in train and test data
+split <- sample.split(Advertising$`Clicked on Ad`, SplitRatio = 0.7)
+split
+
+train <- subset(Advertising, split == "TRUE")
+test <- subset(Advertising, split == "FALSE")
+```
+
+```{r}
+# Fitting Random Forest to the train dataset
+set.seed(120) # Setting seed
+classifier_RF = randomForest(x = train[,-8],
+							y = train$`Clicked on Ad`,
+							ntree = 500)
+
+classifier_RF
+```
+
+```{r}
+# Predicting the Test set results
+y_pred = predict(classifier_RF, newdata = test)
+```
+
+```{r}
+# Confusion Matrix
+cm = table(test$`Clicked on Ad`, y_pred)
+cm
+```
+
+```{r}
+confusionMatrix(cm)
+```
+
+- Our Random Forest classifier gave us an accuracy score of 95.6% 
+
+```{r}
+# Plotting model
+plot(classifier_RF)
+```
+
+```{r}
+# Importance plot
+importance(classifier_RF)
+```
+
+From the feature importance table, we can tell that the most important features in our dataset are: 
+
+- Daily Internet Usage
+- Daily Time Spent on Site
+- Area Income
+- Age
+
+```{r}
+# Variable importance plot
+varImpPlot(classifier_RF)
+
+```
+
+## 5. Logistic Regression Model
+
+```{r}
+# Installing the package
+install.packages("caTools") # For Logistic regression
+install.packages("ROCR")	 # For ROC curve to evaluate model
+```
+
+```{r}
+# Loading package
+library(caTools)
+library(ROCR)
+```
+
+```{r}
+# Splitting dataset
+split <- sample.split(Advertising$`Clicked on Ad`, SplitRatio = 0.7)
+split
+```
+
+```{r}
+training <- subset(Advertising, split == "TRUE")
+test <- subset(Advertising, split == "FALSE")
+``` 
+
+```{r}
+# Training model
+logistic_model <- glm(`Clicked on Ad` ~ .,
+					data = training,
+					family = "binomial")
+logistic_model
+```
+
+```{r}
+# Summary
+summary(logistic_model)
+```
+
+```{r}
+# Predict test data based on model
+predict_reg <- predict(logistic_model,
+					test, type = "response")
+predict_reg
+```
+
+```{r}
+cm <- table(test$`Clicked on Ad`, predict_reg)
+cm
+```
+
+```{r}
+# Changing probabilities
+predict_reg <- ifelse(predict_reg >0.5, 1, 0)
+```
+
+```{r}
+# Evaluating model accuracy
+# using confusion matrix
+table(test$`Clicked on Ad`, predict_reg)
+
+missing_classerr <- mean(predict_reg != test$`Clicked on Ad`)
+print(paste('Accuracy =', 1 - missing_classerr))
+```
+
+- We have achieved an accuracy score of 96% using the logistic regression model. 
+
+
+# 7. CHALLENGING THE SOLUTION
+
+
+# 8. CONCLUSIONS
+
+From the univariate data analysis, we can conclude that: 
+
+- There were more females than males in our dataset.
+- The dataset was balanced in the sense that 500 individuals clicked on the ads while 500 individuals did not click on the ads.
+- Individuals who are between 28 and 36 years old were the most in our dataset.
+- Czech Republic and France both had the highest number of individuals (9) in the dataset.
+- Lisamouth and Williamsport cities both had the highest number of individuals (3) in the dataset.
+
+From the bivariate data analysis, we can conclude that: 
+
+- There is a negative covariance and correlation between age and daily time spent on the site which means that the older an individual is, the less time they spend on the site.
+- There is also a negative covariance and correlation between age and the daily internet usage which means that the younger an individual is, the higher the internet usage is as compared to an older individual.
+
+
+# 9. RECOMMENDATIONS
+
+-   We recommend that she creates an ad that targets individuals aged between 25 and 35 years old seeing as they are the most in our dataset.
+-   We recommend that she focuses her attention more on the youth as they use the internet more and spend more time on the site as compared to the older individuals.
+
